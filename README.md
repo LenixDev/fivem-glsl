@@ -103,4 +103,7 @@ If you use this on the FiveM Platform please if you would be so kind mention me,
 
 I would love to see your usecases!
 
+# Support my work
+## https://ko-fi.com/kypos
+
 [![Star History Chart](https://api.star-history.com/svg?repos=gtasnail/fivem-glsl&type=Date)](https://star-history.com/#gtasnail/fivem-glsl&Date)
