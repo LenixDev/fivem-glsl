@@ -6,6 +6,16 @@
 ## Importing
 <script src="nui://fivem-glsl/blur.js"></script>
 
+## Using it
+
+<div class="blured"></div>
+or 
+<div class="blured-<value>"></div>
+
+# Important
+
+Deleting the element that u added the blur to will make the blur in the whole screen
+
 ## Overview
 
 This project demonstrates a proof-of-concept (POC) for applying GLSL-based blur effects over a FiveM game render. It uses WebGL to create customizable, real-time blur effects on specified elements over the game's user interface.

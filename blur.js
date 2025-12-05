@@ -1,6 +1,6 @@
 const config = {
   resolutionScale: 0.5,  // scale of the rendering resolution (0.5 means half the gamescreen resolution)
-  defaultBlurStrength: 5.0,  //  blur strength if not provided in the data attribute
+  defaultBlurStrength: 1.0,  //  blur strength if not provided in the data attribute
   renderColour: [0.0, 0.0, 0.0, 0.0],  //rgba (for debugging cuttouts)
   maxBlurSize: 20,  // by decreasing this number improves performance by reducing the number of texture samples, but it will result in a less smooth (lower quality) blur effect though.
 };
@@ -210,8 +210,6 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
 
       canvas.width = scaledWidth;
       canvas.height = scaledHeight;
-      canvas.style.width = width + 'px';
-      canvas.style.height = height + 'px';
 
       gl.viewport(0, 0, scaledWidth, scaledHeight);
     },
@@ -228,7 +226,7 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
 
 document.addEventListener('DOMContentLoaded', () => {
   const body = document.body
-  const glassElements = document.querySelectorAll('[blur-value]');
+  const glassElements = document.querySelectorAll('[class*="blured"]');
 
   if (body && glassElements.length > 0) {
     const canvas = document.createElement('canvas');
@@ -239,22 +237,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     body.insertBefore(canvas, body.firstChild);
+    
     glassElements.forEach(element => {
-      const classMatch = [...element.classList].find(c => c.startsWith("blur-value-"));
+      element.classList.add('relative')
+      const classMatch = [...element.classList].find(c => c.startsWith("blured-"));
+      let blured = config.defaultBlurStrength;
+      
       if (classMatch) {
-        const extractedValue = classMatch.replace("blur-value-", "");
-
+        const extractedValue = classMatch.replace("blured-", "");
         if (!isNaN(extractedValue) && extractedValue.trim() !== "") {
-          element.setAttribute("blur-value", extractedValue);
+          blured = parseFloat(extractedValue);
         }
       }
-    });
-    glassElements.forEach(element => {
-      const value = element.getAttribute('blur-value');
 
-      if (!value || value.trim() === "") {
-        element.setAttribute('blur-value', config.defaultBlurStrength.toString());
-      }
+      element.dataset.blurStrength = blured.toString();
     });
 
     const gameView = createGameView(canvas, glassElements);
@@ -266,6 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
       gameView.start();
     }
   } else {
-    console.error('No elements found with blur-value ');
+    console.error('No elements found with blured');
   }
 });
