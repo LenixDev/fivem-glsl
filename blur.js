@@ -1,10 +1,9 @@
 const config = {
-  resolutionScale: 0.5,  // scale of the rendering resolution (0.5 means half the gamescreen resolution)
-  defaultBlurStrength: 1.0,  //  blur strength if not provided in the data attribute
-  renderColour: [0.0, 0.0, 0.0, 0.0],  //rgba (for debugging cuttouts)
-  maxBlurSize: 20,  // by decreasing this number improves performance by reducing the number of texture samples, but it will result in a less smooth (lower quality) blur effect though.
+  resolutionScale: 0.5,
+  defaultBlurStrength: 1.0,
+  renderColour: [0.0, 0.0, 0.0, 0.0],
+  maxBlurSize: 20,
 };
-
 
 const fragmentShaderSrc = `
         precision mediump float;
@@ -53,7 +52,6 @@ const fragmentShaderSrc = `
         }
       `;
 
-
 const vertexShaderSrc = `
         attribute vec2 a_position;
         attribute vec2 a_texcoord;
@@ -73,7 +71,7 @@ function makeShader(gl, type, src) {
   return shader;
 }
 
-function createTexture(gl) { //thanks fxdk
+function createTexture(gl) {
   const tex = gl.createTexture();
   const texPixels = new Uint8Array([0, 0, 255, 255]);
   gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -126,6 +124,7 @@ function createProgram(gl) {
   };
 }
 
+// MODIFIED: Changed to accept a NodeList/Array that can be updated dynamically
 function createGameView(canvas, glassElements, resolutionScale = config.resolutionScale) {
   const gl = canvas.getContext('webgl', {
     antialias: false,
@@ -158,13 +157,16 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
   gl.enableVertexAttribArray(programInfo.attribLocations.texcoord);
 
   let currentResolutionScale = resolutionScale;
+  // ADDED: Store reference to elements array that can be updated
+  let currentElements = glassElements;
 
   function render() {
     const canvasRect = canvas.getBoundingClientRect();
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(programInfo.program);
 
-    glassElements.forEach(element => {
+    // MODIFIED: Use currentElements instead of glassElements directly
+    currentElements.forEach(element => {
       const rect = element.getBoundingClientRect();
       const buffer = 1;
       const scaledLeft = Math.floor((rect.left - canvasRect.left) * currentResolutionScale) - buffer;
@@ -194,8 +196,6 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
       gl.uniform1f(programInfo.uniformLocations.blurStrength, blurStrength);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-
     });
 
     requestAnimationFrame(render);
@@ -217,6 +217,10 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
       currentResolutionScale = scale;
       gameView.resize(window.innerWidth, window.innerHeight);
     },
+    // ADDED: Method to update the elements being rendered
+    updateElements: (newElements) => {
+      currentElements = newElements;
+    },
     start: () => {
       gl.clearColor(...config.renderColour);
       render();
@@ -225,43 +229,157 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const body = document.body
-  const glassElements = document.querySelectorAll('[class*="blured"]');
+  const body = document.body;
+  let canvas = null;
+  let gameView = null;
+  // ADDED: Set to track all processed elements and prevent duplicates
+  const trackedElements = new Set();
 
-  if (body && glassElements.length > 0) {
-    const canvas = document.createElement('canvas');
-    canvas.id = 'render';
-    Object.assign(canvas.style, {
-      position: 'absolute',
-      width: '100%',
-    });
+  // ADDED: Initialize canvas once and reuse it
+  const initCanvas = () => {
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'render';
+      Object.assign(canvas.style, {
+        position: 'absolute',
+        width: '100%',
+      });
+      body.insertBefore(canvas, body.firstChild);
+    }
+    return canvas;
+  };
 
-    body.insertBefore(canvas, body.firstChild);
+  // ADDED: Process a single element (extract blur strength and add to tracked set)
+  const processElement = (element) => {
+    // Skip if already processed
+    if (trackedElements.has(element)) return;
     
-    glassElements.forEach(element => {
-      element.classList.add('relative')
-      const classMatch = [...element.classList].find(c => c.startsWith("blured-"));
-      let blured = config.defaultBlurStrength;
-      
-      if (classMatch) {
-        const extractedValue = classMatch.replace("blured-", "");
-        if (!isNaN(extractedValue) && extractedValue.trim() !== "") {
-          blured = parseFloat(extractedValue);
+    element.classList.add('relative');
+    const classMatch = [...element.classList].find(c => c.startsWith("blured-"));
+    let blured = config.defaultBlurStrength;
+    
+    if (classMatch) {
+      const extractedValue = classMatch.replace("blured-", "");
+      if (!isNaN(extractedValue) && extractedValue.trim() !== "") {
+        blured = parseFloat(extractedValue);
+      }
+    }
+    
+    element.dataset.blurStrength = blured.toString();
+    // Add to tracked set so we don't process it again
+    trackedElements.add(element);
+  };
+
+  // ADDED: Remove element from tracking when blur class is removed
+  const removeElement = (element) => {
+    if (trackedElements.has(element)) {
+      trackedElements.delete(element);
+      delete element.dataset.blurStrength;
+      return true;
+    }
+    return false;
+  };
+
+  // ADDED: Process all current blur elements in the DOM
+  const processAllElements = () => {
+    const glassElements = document.querySelectorAll('[class*="blured"]');
+    
+    // ADDED: Remove elements that no longer have blur class
+    trackedElements.forEach(element => {
+      const hasBlurClass = Array.from(element.classList).some(c => c.includes('blured'));
+      if (!hasBlurClass) {
+        removeElement(element);
+      }
+    });
+    
+    if (glassElements.length > 0) {
+      // Initialize canvas and gameView on first run
+      if (!gameView) {
+        const canvasEl = initCanvas();
+        glassElements.forEach(processElement);
+        
+        // Create gameView with current tracked elements
+        gameView = createGameView(canvasEl, Array.from(trackedElements));
+        
+        if (gameView) {
+          const updateSize = () => gameView.resize(window.innerWidth, window.innerHeight);
+          updateSize();
+          window.addEventListener('resize', updateSize);
+          gameView.start();
+        }
+      } else {
+        // If gameView already exists, just process new elements
+        glassElements.forEach(processElement);
+        // Update gameView with all tracked elements
+        gameView.updateElements(Array.from(trackedElements));
+      }
+    } else if (gameView) {
+      // ADDED: If no blur elements exist, update with empty array
+      gameView.updateElements(Array.from(trackedElements));
+    }
+  };
+
+  // MODIFIED: Initial processing of existing elements
+  processAllElements();
+
+  // ADDED: MutationObserver to watch for new elements being added to DOM
+  const observer = new MutationObserver((mutations) => {
+    let hasNewBlurElements = false;
+
+    mutations.forEach((mutation) => {
+      // Check for newly added nodes
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node;
+          
+          // Check if the added node itself has blur class
+          if (element.classList && Array.from(element.classList).some(c => c.includes('blured'))) {
+            processElement(element);
+            hasNewBlurElements = true;
+          }
+          
+          // Check if added node has children with blur class
+          const children = element.querySelectorAll('[class*="blured"]');
+          if (children.length > 0) {
+            children.forEach(processElement);
+            hasNewBlurElements = true;
+          }
+        }
+      });
+
+      // ADDED: Handle class attribute changes on existing elements
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        const target = mutation.target;
+        // If class was added that contains 'blured', process the element
+        if (Array.from(target.classList).some(c => c.includes('blured'))) {
+          processElement(target);
+          hasNewBlurElements = true;
         }
       }
-
-      element.dataset.blurStrength = blured.toString();
     });
 
-    const gameView = createGameView(canvas, glassElements);
-
-    if (gameView) {
-      const updateSize = () => gameView.resize(window.innerWidth, window.innerHeight);
-      updateSize();
-      window.addEventListener('resize', updateSize);
-      gameView.start();
+    // ADDED: Update gameView if new blur elements were detected
+    if (hasNewBlurElements && gameView) {
+      gameView.updateElements(Array.from(trackedElements));
     }
-  } else {
-    console.error('No elements found with blured');
-  }
+  });
+
+  // ADDED: Start observing the entire document for changes
+  observer.observe(body, {
+    childList: true,        // Watch for added/removed children
+    subtree: true,          // Watch all descendants, not just direct children
+    attributes: true,       // Watch for attribute changes
+    attributeFilter: ['class'] // Only watch class attribute changes (optimization)
+  });
+
+  // ADDED: Cleanup observer on page unload (good practice)
+  window.addEventListener('beforeunload', () => {
+    observer.disconnect();
+  });
+
+  // ADDED: Expose function to manually trigger blur processing
+  // This allows other scripts to force re-scan after dynamically adding blur classes
+  window.refreshBlurElements = () => {
+    processAllElements();
+  };
 });

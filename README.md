@@ -7,14 +7,16 @@
 <script src="nui://fivem-glsl/blur.js"></script>
 
 ## Using it
-
+### On Runtime
 <div class="blured"></div>
 or 
 <div class="blured-<value>"></div>
 
-# Important
-
-Deleting the element that u added the blur to will make the blur in the whole screen
+### After loading the wom
+- make sure you run this after you put, remove or update the class
+```ts
+  ;(window as any).refreshBlurElements?.()
+```
 
 ## Overview
 
