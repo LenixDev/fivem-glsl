@@ -9,5 +9,5 @@ ui_page 'index.html'
 
 files {
     'index.html',
-    'build/blur.js'  -- Updated to use compiled version
+    'index.js'
 }
