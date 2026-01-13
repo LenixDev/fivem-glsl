@@ -3,8 +3,17 @@
 ![Project Preview](/screens/preview.png)
 
 # Usage
+## Compiling
+To compile the project, run the following command in the terminal:
+```bash
+npm i
+```
+```bash
+npm run build
+```
+
 ## Importing
-<script src="nui://fivem-glsl/blur.js"></script>
+<script src="nui://fivem-glsl/index.js"></script>
 
 ## Using it
 ### On Runtime
